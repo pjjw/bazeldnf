@@ -13,6 +13,8 @@ import (
 	"github.com/rmohr/bazeldnf/pkg/api"
 	"github.com/rmohr/bazeldnf/pkg/api/bazeldnf"
 	"github.com/rmohr/bazeldnf/pkg/rpm"
+
+	"github.com/klauspost/compress/zstd"
 )
 
 type CacheHelper struct {
@@ -79,9 +81,18 @@ func (r *CacheHelper) CurrentPrimary(repo *bazeldnf.Repository) (*api.Repository
 	}
 
 	defer file.Close()
-	reader, err := gzip.NewReader(file)
-	if err != nil {
-		return nil, err
+	var reader io.ReadCloser
+	if strings.HasSuffix(primaryName, "zst") {
+		decoder, err := zstd.NewReader(file)
+		if err != nil {
+			return nil, err
+		}
+		reader = decoder.IOReadCloser()
+	} else {
+		reader, err = gzip.NewReader(file)
+		if err != nil {
+			return nil, err
+		}
 	}
 	defer reader.Close()
 

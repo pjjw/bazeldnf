@@ -34,7 +34,7 @@ func (r *RepoReducer) Load() error {
 		defer f.Close()
 		err = xml.NewDecoder(f).Decode(repoFile)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed while decoding xml: %w", err)
 		}
 		for i, p := range repoFile.Packages {
 			if skip(p.Arch, r.architectures) {
@@ -45,7 +45,7 @@ func (r *RepoReducer) Load() error {
 	}
 	repos, err := r.cacheHelper.CurrentPrimaries(r.repos, r.arch)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed while getting current primaries: %w", err)
 	}
 	for _, rpmrepo := range repos {
 		for i, p := range rpmrepo.Packages {

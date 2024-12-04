@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"fmt"
 
 	"github.com/rmohr/bazeldnf/cmd/template"
 	"github.com/rmohr/bazeldnf/pkg/api/bazeldnf"
@@ -43,23 +44,23 @@ func NewResolveCmd() *cobra.Command {
 			repo := reducer.NewRepoReducer(repos, resolveopts.in, resolveopts.lang, resolveopts.baseSystem, resolveopts.arch, ".bazeldnf")
 			logrus.Info("Loading packages.")
 			if err := repo.Load(); err != nil {
-				return err
+				return fmt.Errorf("failed while loading packages: %w", err)
 			}
 			logrus.Info("Initial reduction of involved packages.")
 			matched, involved, err := repo.Resolve(required)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed while resolving packages: %w", err)
 			}
 			solver := sat.NewResolver(resolveopts.nobest)
 			logrus.Info("Loading involved packages into the resolver.")
 			err = solver.LoadInvolvedPackages(involved, resolveopts.forceIgnoreRegex)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed while loading involved packages: %w", err)
 			}
 			logrus.Info("Adding required packages to the resolver.")
 			err = solver.ConstructRequirements(matched)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed while constructing requirements: %w", err)
 			}
 			logrus.Info("Solving.")
 			install, _, forceIgnored, err := solver.Resolve()
