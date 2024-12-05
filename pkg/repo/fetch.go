@@ -42,6 +42,12 @@ func (r *RepoFetcherImpl) Fetch() (err error) {
 			if err != nil {
 				return fmt.Errorf("failed to get sha256sum of repomd file: %v", err)
 			}
+		} else if repo.Mirrorlist != "" {
+			urls, err := r.resolveMirrorlist(&repo)
+			if err != nil {
+				return fmt.Errorf("failed to resolve mirrorlist for %s: %v", repo.Name, err)
+			}
+			repomdURLs = urls
 		} else if repo.Baseurl != "" {
 			repomdURLs = append(repomdURLs, strings.TrimSuffix(repo.Baseurl, "/")+"/repodata/repomd.xml")
 		}
@@ -108,6 +114,42 @@ func (r *RepoFetcherImpl) resolveMetaLink(repo *bazeldnf.Repository) (*api.Metal
 	}
 
 	return metalink, urls, nil
+}
+
+func (r *RepoFetcherImpl) resolveMirrorlist(repo *bazeldnf.Repository) ([]string, error) {
+	resp, err := r.Getter.Get(repo.Mirrorlist)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		return nil, fmt.Errorf("Failed to download %s: %v ", repo.Mirrorlist, fmt.Errorf("status : %v", resp.StatusCode))
+	}
+	if err := r.CacheHelper.WriteToRepoDir(repo, resp.Body, "mirrorlist"); err != nil {
+		return nil, err
+	}
+
+	mirrorlist, err := r.CacheHelper.LoadMirrorlist(repo)
+	log.Infof("Loaded mirrorlist: %v", mirrorlist)
+
+	urls := []string{}
+	for _, mirror := range mirrorlist {
+		u, err := url.Parse(mirror)
+		if err != nil {
+			return nil, fmt.Errorf("Failed to parse mirror URL %s: %v", mirror, err)
+		}
+		if !(u.Scheme == "https" || u.Scheme == "http") {
+			continue
+		}
+		u.Path = path.Join(u.Path, "repodata/repomd.xml")
+		urls = append(urls, u.String())
+	}
+
+	if len(urls) == 0 {
+		return nil, fmt.Errorf("Mirrorlist contains no http or https links")
+	}
+
+	return urls, nil
 }
 
 func (r *RepoFetcherImpl) resolveRepomd(repo *bazeldnf.Repository, repomdURLs []string, sha256sums []string) (repomd *api.Repomd, mirror *url.URL, err error) {

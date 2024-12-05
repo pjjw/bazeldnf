@@ -10,6 +10,7 @@ type Repository struct {
 	Metalink string   `json:"metalink,omitempty"`
 	Baseurl  string   `json:"baseurl,omitempty"`
 	Arch     string   `json:"arch"`
+	Mirrorlist string `json:mirrorlist,omitempty"`
 	Mirrors  []string `json:"mirrors,omitempty"`
 	GPGKey   string   `json:"gpgkey,omitempty"`
 }

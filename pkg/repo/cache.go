@@ -1,6 +1,7 @@
 package repo
 
 import (
+	"bufio"
 	"compress/gzip"
 	"encoding/xml"
 	"fmt"
@@ -27,6 +28,19 @@ func (r *CacheHelper) LoadMetaLink(repo *bazeldnf.Repository) (*api.Metalink, er
 		return nil, err
 	}
 	return metalink, nil
+}
+
+func (r *CacheHelper) LoadMirrorlist(repo *bazeldnf.Repository) ([]string, error) {
+	lines := []string{}
+	file, err := r.OpenFromRepoDir(repo, "mirrorlist")
+	if err != nil {
+		return nil, err
+	}
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		lines = append(lines, scanner.Text())
+	}
+	return lines, scanner.Err()
 }
 
 func (r *CacheHelper) WriteToRepoDir(repo *bazeldnf.Repository, body io.Reader, name string) error {
@@ -102,24 +116,28 @@ func (r *CacheHelper) CurrentPrimary(repo *bazeldnf.Repository) (*api.Repository
 		return nil, err
 	}
 
-	if len(repo.Mirrors) == 0 && repo.Metalink != "" {
-		metalink, err := r.LoadMetaLink(repo)
-		if err == nil {
-			urls := []string{}
-			for _, url := range metalink.Repomod().Resources.URLs {
-				if url.Type == "https" {
-					urls = append(urls, strings.TrimSuffix(url.Text, "repodata/repomd.xml"))
+	if len(repo.Mirrors) == 0 {
+		if repo.Metalink != "" {
+			metalink, err := r.LoadMetaLink(repo)
+			if err == nil {
+				urls := []string{}
+				for _, url := range metalink.Repomod().Resources.URLs {
+					if url.Type == "https" {
+						urls = append(urls, strings.TrimSuffix(url.Text, "repodata/repomd.xml"))
+					}
+					if len(urls) == 4 {
+						break
+					}
 				}
-				if len(urls) == 4 {
-					break
-				}
+				repo.Mirrors = urls
+			} else if !os.IsNotExist(err) {
+				return nil, err
 			}
-			repo.Mirrors = urls
-		} else if !os.IsNotExist(err) {
-			return nil, err
+		} else if repo.Mirrorlist != "" {
+
+		} else if repo.Baseurl != "" {
+			repo.Mirrors = []string{repo.Baseurl}
 		}
-	} else if len(repo.Mirrors) == 0 && repo.Baseurl != "" {
-		repo.Mirrors = []string{repo.Baseurl}
 	}
 
 	for i, _ := range repository.Packages {
