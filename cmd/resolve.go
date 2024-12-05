@@ -1,15 +1,15 @@
 package main
 
 import (
-	"os"
 	"fmt"
+	"os"
 
 	"github.com/rmohr/bazeldnf/cmd/template"
 	"github.com/rmohr/bazeldnf/pkg/api/bazeldnf"
+	l "github.com/rmohr/bazeldnf/pkg/logger"
 	"github.com/rmohr/bazeldnf/pkg/reducer"
 	"github.com/rmohr/bazeldnf/pkg/repo"
 	"github.com/rmohr/bazeldnf/pkg/sat"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -33,6 +33,8 @@ func NewResolveCmd() *cobra.Command {
 		Long:  `resolves dependencies of the given packages with the assumption of a SCRATCH container as install target`,
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, required []string) error {
+			InitLogger(cmd)
+
 			repos := &bazeldnf.Repositories{}
 			if len(resolveopts.in) == 0 {
 				var err error
@@ -42,31 +44,32 @@ func NewResolveCmd() *cobra.Command {
 				}
 			}
 			repo := reducer.NewRepoReducer(repos, resolveopts.in, resolveopts.lang, resolveopts.baseSystem, resolveopts.arch, ".bazeldnf")
-			logrus.Info("Loading packages.")
+			l.Log().Info("Loading packages.")
 			if err := repo.Load(); err != nil {
 				return fmt.Errorf("failed while loading packages: %w", err)
 			}
-			logrus.Info("Initial reduction of involved packages.")
+			l.Log().Info("Initial reduction of involved packages.")
 			matched, involved, err := repo.Resolve(required)
 			if err != nil {
 				return fmt.Errorf("failed while resolving packages: %w", err)
 			}
 			solver := sat.NewResolver(resolveopts.nobest)
-			logrus.Info("Loading involved packages into the resolver.")
+			l.Log().Info("Loading involved packages into the resolver.")
 			err = solver.LoadInvolvedPackages(involved, resolveopts.forceIgnoreRegex)
 			if err != nil {
 				return fmt.Errorf("failed while loading involved packages: %w", err)
 			}
-			logrus.Info("Adding required packages to the resolver.")
+			l.Log().Info("Adding required packages to the resolver.")
 			err = solver.ConstructRequirements(matched)
 			if err != nil {
 				return fmt.Errorf("failed while constructing requirements: %w", err)
 			}
-			logrus.Info("Solving.")
+			l.Log().Info("Solving.")
 			install, _, forceIgnored, err := solver.Resolve()
 			if err != nil {
 				return err
 			}
+			l.Log().Infof("Selected %d packages.", len(install))
 			if err := template.Render(os.Stdout, install, forceIgnored); err != nil {
 				return err
 			}

@@ -6,10 +6,10 @@ import (
 	"github.com/bazelbuild/buildtools/build"
 	"github.com/rmohr/bazeldnf/cmd/template"
 	"github.com/rmohr/bazeldnf/pkg/bazel"
+	l "github.com/rmohr/bazeldnf/pkg/logger"
 	"github.com/rmohr/bazeldnf/pkg/reducer"
 	"github.com/rmohr/bazeldnf/pkg/repo"
 	"github.com/rmohr/bazeldnf/pkg/sat"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -25,6 +25,7 @@ type rpmtreeOpts struct {
 	name             string
 	public           bool
 	forceIgnoreRegex []string
+	report            bool
 }
 
 var rpmtreeopts = rpmtreeOpts{}
@@ -36,6 +37,8 @@ func NewRpmTreeCmd() *cobra.Command {
 		Short: "Writes a rpmtree rule and its rpmdependencies to bazel files",
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, required []string) error {
+			InitLogger(cmd)
+
 			writeToMacro := rpmtreeopts.toMacro != ""
 
 			repos, err := repo.LoadRepoFiles(rpmtreeopts.repofiles)
@@ -43,31 +46,33 @@ func NewRpmTreeCmd() *cobra.Command {
 				return err
 			}
 			repoReducer := reducer.NewRepoReducer(repos, nil, rpmtreeopts.lang, rpmtreeopts.baseSystem, rpmtreeopts.arch, ".bazeldnf")
-			logrus.Info("Loading packages.")
+			l.Log().Info("Loading packages.")
 			if err := repoReducer.Load(); err != nil {
 				return err
 			}
-			logrus.Info("Initial reduction of involved packages.")
+			l.Log().Info("Initial reduction of involved packages.")
 			matched, involved, err := repoReducer.Resolve(required)
 			if err != nil {
 				return err
 			}
 			solver := sat.NewResolver(rpmtreeopts.nobest)
-			logrus.Info("Loading involved packages into the rpmtreer.")
+			l.Log().Info("Loading involved packages into the rpmtree.")
 			err = solver.LoadInvolvedPackages(involved, rpmtreeopts.forceIgnoreRegex)
 			if err != nil {
 				return err
 			}
-			logrus.Info("Adding required packages to the rpmtreer.")
+			l.Log().Info("Adding required packages to the rpmtree.")
 			err = solver.ConstructRequirements(matched)
 			if err != nil {
 				return err
 			}
-			logrus.Info("Solving.")
+			l.Log().Info("Solving.")
 			install, _, forceIgnored, err := solver.Resolve()
 			if err != nil {
 				return err
 			}
+			l.Log().Infof("Selected %d packages.", len(install))
+
 			workspace, err := bazel.LoadWorkspace(rpmtreeopts.workspace)
 			if err != nil {
 				return err
@@ -105,7 +110,7 @@ func NewRpmTreeCmd() *cobra.Command {
 			} else {
 				bazel.PruneWorkspaceRPMs(build, workspace)
 			}
-			logrus.Info("Writing bazel files.")
+			l.Log().Info("Writing bazel files.")
 			err = bazel.WriteWorkspace(false, workspace, rpmtreeopts.workspace)
 			if err != nil {
 				return err
@@ -120,8 +125,10 @@ func NewRpmTreeCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if err := template.Render(os.Stdout, install, forceIgnored); err != nil {
-				return err
+			if rpmtreeopts.report {
+				if err := template.Render(os.Stdout, install, forceIgnored); err != nil {
+					return err
+				}
 			}
 
 			return nil
@@ -132,6 +139,8 @@ func NewRpmTreeCmd() *cobra.Command {
 	rpmtreeCmd.Flags().StringVarP(&rpmtreeopts.arch, "arch", "a", "x86_64", "target architecture")
 	rpmtreeCmd.Flags().BoolVarP(&rpmtreeopts.nobest, "nobest", "n", false, "allow picking versions which are not the newest")
 	rpmtreeCmd.Flags().BoolVarP(&rpmtreeopts.public, "public", "p", true, "if the rpmtree rule should be public")
+	rpmtreeCmd.Flags().BoolVarP(&rpmtreeopts.report, "report", "", false, "print package installation report to stdout")
+	// rpmtreeCmd.Flags().BoolVarP(&rpmtreeopts.quiet, "quiet", "q", false, "suppress output")
 	rpmtreeCmd.Flags().StringArrayVarP(&rpmtreeopts.repofiles, "repofile", "r", []string{"repo.yaml"}, "repository information file. Can be specified multiple times. Will be used by default if no explicit inputs are provided.")
 	rpmtreeCmd.Flags().StringVarP(&rpmtreeopts.workspace, "workspace", "w", "WORKSPACE", "Bazel workspace file")
 	rpmtreeCmd.Flags().StringVarP(&rpmtreeopts.toMacro, "to-macro", "", "", "Tells bazeldnf to write the RPMs to a macro in the given bzl file instead of the WORKSPACE file. The expected format is: macroFile%defName")

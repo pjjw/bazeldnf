@@ -7,9 +7,9 @@ import (
 
 	"github.com/rmohr/bazeldnf/pkg/api"
 	"github.com/rmohr/bazeldnf/pkg/api/bazeldnf"
+	l "github.com/rmohr/bazeldnf/pkg/logger"
 	"github.com/rmohr/bazeldnf/pkg/reducer"
 	"github.com/rmohr/bazeldnf/pkg/repo"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -35,6 +35,8 @@ which allow reducing huge rpm repos to a smaller problem set for debugging, remo
 `,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, required []string) error {
+			InitLogger(cmd)
+
 			repos := &bazeldnf.Repositories{}
 			if len(reduceopts.in) == 0 {
 				var err error
@@ -44,16 +46,16 @@ which allow reducing huge rpm repos to a smaller problem set for debugging, remo
 				}
 			}
 			repo := reducer.NewRepoReducer(repos, reduceopts.in, reduceopts.lang, reduceopts.baseSystem, reduceopts.arch, ".bazeldnf")
-			logrus.Info("Loading packages.")
+			l.Log().Info("Loading packages.")
 			if err := repo.Load(); err != nil {
 				return err
 			}
-			logrus.Info("Reduction of involved packages.")
+			l.Log().Info("Reduction of involved packages.")
 			_, involved, err := repo.Resolve(required)
 			if err != nil {
 				return err
 			}
-			logrus.Info("Writing involved packages as a repo.")
+			l.Log().Info("Writing involved packages as a repo.")
 			testrepo := &api.Repository{}
 			for _, pkg := range involved {
 				testrepo.Packages = append(testrepo.Packages, *pkg)

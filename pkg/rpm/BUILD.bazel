@@ -11,10 +11,10 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/api",
+        "//pkg/logger",
         "//pkg/xattr",
         "@com_github_sassoftware_go_rpmutils//:go-rpmutils",
         "@com_github_sassoftware_go_rpmutils//cpio",
-        "@com_github_sirupsen_logrus//:logrus",
     ],
 )
 

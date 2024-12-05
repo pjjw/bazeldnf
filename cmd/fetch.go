@@ -18,6 +18,7 @@ func NewFetchCmd() *cobra.Command {
 		Short: "Update repo metadata",
 		Long:  `Update repo metadata`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			InitLogger(cmd)
 			repos, err := repo.LoadRepoFiles(fetchopts.repofiles)
 			if err != nil {
 				return err

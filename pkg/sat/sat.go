@@ -13,9 +13,9 @@ import (
 	"github.com/crillab/gophersat/explain"
 	"github.com/crillab/gophersat/maxsat"
 	"github.com/rmohr/bazeldnf/pkg/api"
+	l "github.com/rmohr/bazeldnf/pkg/logger"
 	"github.com/rmohr/bazeldnf/pkg/reducer"
 	"github.com/rmohr/bazeldnf/pkg/rpm"
-	"github.com/sirupsen/logrus"
 )
 
 type VarType string
@@ -112,7 +112,7 @@ func (r *Resolver) LoadInvolvedPackages(packages []*api.Package, ignoreRegex []s
 	deduplicated := map[string]*api.Package{}
 	for i, pkg := range packages {
 		if _, exists := deduplicated[pkg.String()]; exists {
-			logrus.Infof("Removing duplicate of  %v.", pkg.String())
+			l.Log().Infof("Removing duplicate of  %v.", pkg.String())
 		}
 		fullName := pkg.String()
 		if _, exists := deduplicated[fullName]; !exists {
@@ -121,7 +121,7 @@ func (r *Resolver) LoadInvolvedPackages(packages []*api.Package, ignoreRegex []s
 					return fmt.Errorf("failed to match package with regex '%v': %v", rex, err)
 				} else if match {
 					packages[i].Format.Requires.Entries = nil
-					logrus.Warnf("Package %v is forcefully ignored by regex '%v'.", pkg.String(), rex)
+					l.Log().Warnf("Package %v is forcefully ignored by regex '%v'.", pkg.String(), rex)
 					r.forceIgnoreWithDependencies[pkg.String()] = packages[i]
 					break
 				}
@@ -167,7 +167,7 @@ func (r *Resolver) LoadInvolvedPackages(packages []*api.Package, ignoreRegex []s
 		})
 	}
 
-	logrus.Infof("Loaded %v packages.", len(r.pkgProvides))
+	l.Log().Infof("Loaded %v packages.", len(r.pkgProvides))
 	// Generate imply rules
 	for _, resourceVars := range r.pkgProvides {
 		// Create imply rules for every package and add them to the formula
@@ -184,7 +184,7 @@ func (r *Resolver) LoadInvolvedPackages(packages []*api.Package, ignoreRegex []s
 		}
 		r.ands = append(r.ands, ands...)
 	}
-	logrus.Infof("Generated %v variables.", len(r.vars))
+	l.Log().Infof("Generated %v variables.", len(r.vars))
 	return nil
 }
 
@@ -194,14 +194,14 @@ func (r *Resolver) ConstructRequirements(packages []string) error {
 		if err != nil {
 			return err
 		}
-		logrus.Infof("Selecting %s: %v", pkgName, req.Package)
+		l.Log().Infof("Selecting %s: %v", pkgName, req.Package)
 		r.ands = append(r.ands, bf.Var(req.satVarName))
 	}
 	return nil
 }
 
 func (res *Resolver) Resolve() (install []*api.Package, excluded []*api.Package, forceIgnoredWithDependencies []*api.Package, err error) {
-	logrus.WithField("bf", bf.And(res.ands...)).Debug("Formula to solve")
+	l.Log().WithField("bf", bf.And(res.ands...)).Debug("Formula to solve")
 
 	satReader, satWriter := io.Pipe()
 	pwMaxSatReader, pwMaxSatWriter := io.Pipe()
@@ -268,7 +268,7 @@ func (res *Resolver) Resolve() (install []*api.Package, excluded []*api.Package,
 		}
 	}()
 
-	logrus.Info("Loading the Partial weighted MAXSAT problem.")
+	l.Log().Info("Loading the Partial weighted MAXSAT problem.")
 	s, err := maxsat.ParseWCNF(pwMaxSatReader)
 	if err != nil {
 		return nil, nil, nil, err
@@ -281,11 +281,11 @@ func (res *Resolver) Resolve() (install []*api.Package, excluded []*api.Package,
 	}
 	satVars := <-varsChan
 
-	logrus.Info("Solving the Partial weighted MAXSAT problem.")
+	l.Log().Info("Solving the Partial weighted MAXSAT problem.")
 	solution := s.Optimal(nil, nil)
 
 	if solution.Status.String() == "SAT" {
-		logrus.Infof("Solution with weight %v found.", solution.Weight)
+		l.Log().Infof("Solution with weight %v found.", solution.Weight)
 		installMap := map[VarContext]*api.Package{}
 		excludedMap := map[VarContext]*api.Package{}
 		forceIgnoreMap := map[VarContext]*api.Package{}
@@ -306,7 +306,7 @@ func (res *Resolver) Resolve() (install []*api.Package, excluded []*api.Package,
 		}
 		for _, v := range installMap {
 			if rpm.Compare(res.bestPackages[v.Name].Version, v.Version) != 0 {
-				logrus.Infof("Picking %v instead of best candiate %v", v, res.bestPackages[v.Name])
+				l.Log().Infof("Picking %v instead of best candiate %v", v, res.bestPackages[v.Name])
 			}
 			install = append(install, v)
 		}
@@ -319,12 +319,12 @@ func (res *Resolver) Resolve() (install []*api.Package, excluded []*api.Package,
 		}
 		return install, excluded, forceIgnoredWithDependencies, nil
 	}
-	logrus.Info("No solution found.")
+	l.Log().Info("No solution found.")
 	return nil, nil, nil, fmt.Errorf("no solution found")
 }
 
 func (res *Resolver) MUS() (mus *explain.Problem, err error) {
-	logrus.Info("No solution found.")
+	l.Log().Info("No solution found.")
 	r, w := io.Pipe()
 
 	err = bf.Dimacs(bf.And(res.ands...), w)
@@ -399,7 +399,7 @@ func (r *Resolver) explodePackageRequires(pkgVar *Var) bf.Formula {
 	for _, req := range pkgVar.Package.Format.Requires.Entries {
 		satisfies, err := r.explodeSingleRequires(req, r.provides[req.Name])
 		if err != nil {
-			logrus.Warnf("Package %s requires %s, but only got %+v", pkgVar.Package, req, r.provides[req.Name])
+			l.Log().Warnf("Package %s requires %s, but only got %+v", pkgVar.Package, req, r.provides[req.Name])
 			r.unresolvable = append(r.unresolvable, unresolvable{
 				Package:     pkgVar.Package,
 				Requirement: req,
@@ -427,11 +427,11 @@ func (r *Resolver) explodePackageConflicts(pkgVar *Var) bf.Formula {
 		for _, s := range conflicts {
 			if s.Package == pkgVar.Package {
 				// don't conflict with yourself
-				//logrus.Infof("%s does not conflict with %s", s.Package.String(), pkgVar.Package.String())
+				//l.Log().Infof("%s does not conflict with %s", s.Package.String(), pkgVar.Package.String())
 				continue
 			}
 			if !strings.HasPrefix(s.Package.Name, "fedora-release") && !strings.HasPrefix(pkgVar.Package.String(), "fedora-release") {
-				logrus.Infof("%s conflicts with %s", s.Package.String(), pkgVar.Package.String())
+				l.Log().Infof("%s conflicts with %s", s.Package.String(), pkgVar.Package.String())
 			}
 			conflictingVars = append(conflictingVars, bf.Var(s.satVarName))
 		}

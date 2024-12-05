@@ -2,15 +2,15 @@ package main
 
 import (
 	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/rmohr/bazeldnf/pkg/bazel"
 	"github.com/rmohr/bazeldnf/pkg/ldd"
+	l "github.com/rmohr/bazeldnf/pkg/logger"
 	"github.com/rmohr/bazeldnf/pkg/rpm"
-	"github.com/sirupsen/logrus"
+
 	"github.com/spf13/cobra"
 )
 
@@ -32,6 +32,8 @@ func NewLddCmd() *cobra.Command {
 		Short: "Determine shared library dependencies of binaries",
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, objects []string) error {
+			InitLogger(cmd)
+
 			tmpRoot, err := ioutil.TempDir("", "bazeldnf-ldd")
 			if err != nil {
 				return err
@@ -68,7 +70,7 @@ func NewLddCmd() *cobra.Command {
 					return nil
 				})
 			if err != nil {
-				log.Println(err)
+				l.Log().Println(err)
 				return err
 			}
 			build, err := bazel.LoadBuild(lddopts.buildfile)
@@ -81,7 +83,7 @@ func NewLddCmd() *cobra.Command {
 				return err
 			}
 
-			logrus.Info("Done.")
+			l.Log().Info("Done.")
 
 			return nil
 		},

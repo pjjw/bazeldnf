@@ -20,6 +20,8 @@ func NewInitCmd() *cobra.Command {
 		Short: "Create basic repo.yaml files for fedora releases",
 		Long:  `Create proper repo information with release- and update repos for fedora releases`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			InitLogger(cmd)
+
 			return repo.NewRemoteInit(initopts.fc, initopts.arch, initopts.out).Init()
 		},
 	}

@@ -11,7 +11,7 @@ go_library(
     deps = [
         "//pkg/api",
         "//pkg/api/bazeldnf",
+        "//pkg/logger",
         "//pkg/repo",
-        "@com_github_sirupsen_logrus//:logrus",
     ],
 )

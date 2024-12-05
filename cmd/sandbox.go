@@ -23,6 +23,8 @@ func NewSandboxCmd() *cobra.Command {
 		Use:   "sandbox",
 		Short: "Extract a set of RPMs to a specific location",
 		RunE: func(cmd *cobra.Command, objects []string) error {
+			InitLogger(cmd)
+
 			rootDir := filepath.Join(sandboxopts.sandboxRoot, "sandbox", sandboxopts.name, "root")
 			if err := os.RemoveAll(rootDir); err != nil {
 				return fmt.Errorf("failed to do the initial cleanup on the sandbox: %v", err)

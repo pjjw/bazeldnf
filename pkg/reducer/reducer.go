@@ -8,8 +8,8 @@ import (
 
 	"github.com/rmohr/bazeldnf/pkg/api"
 	"github.com/rmohr/bazeldnf/pkg/api/bazeldnf"
+	l "github.com/rmohr/bazeldnf/pkg/logger"
 	"github.com/rmohr/bazeldnf/pkg/repo"
-	"github.com/sirupsen/logrus"
 )
 
 type RepoReducer struct {
@@ -126,7 +126,7 @@ func (r *RepoReducer) Resolve(packages []string) (matched []string, involved []*
 					if _, exists := pinned[newFound.Name]; !exists {
 						discovered[newFound.String()] = newFound
 					} else {
-						logrus.Debugf("excluding %s because of pinned dependency %s", newFound.String(), pinned[newFound.Name].String())
+						l.Log().Debugf("excluding %s because of pinned dependency %s", newFound.String(), pinned[newFound.Name].String())
 					}
 				}
 			}
@@ -165,10 +165,10 @@ func (r *RepoReducer) requires(p *api.Package) (wants []*api.Package) {
 			for _, p := range val {
 				packages = append(packages, p.Name)
 			}
-			logrus.Debugf("%s wants %v because of %v\n", p.Name, packages, requires)
+			l.Log().Debugf("%s wants %v because of %v\n", p.Name, packages, requires)
 			wants = append(wants, val...)
 		} else {
-			logrus.Debugf("%s requires %v which can't be satisfied\n", p.Name, requires)
+			l.Log().Debugf("%s requires %v which can't be satisfied\n", p.Name, requires)
 		}
 	}
 	return wants

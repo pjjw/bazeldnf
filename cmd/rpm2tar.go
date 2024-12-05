@@ -28,6 +28,8 @@ func NewRpm2TarCmd() *cobra.Command {
 		Use:   "rpm2tar",
 		Short: "convert a rpm to a tar archive",
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
+			InitLogger(cmd)
+
 			sortSymlinkKeys()
 			rpmStream := os.Stdin
 			tarStream := os.Stdout

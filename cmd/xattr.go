@@ -25,6 +25,8 @@ func NewXATTRCmd() *cobra.Command {
 		Short: "Modify xattrs on tar file members",
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
+			InitLogger(cmd)
+
 			capabilityMap := map[string][]string{}
 			for file, caps := range xattropts.capabilities {
 				split := strings.Split(caps, ":")

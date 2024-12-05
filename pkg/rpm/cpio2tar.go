@@ -24,9 +24,9 @@ import (
 	"sort"
 	"time"
 
+	l "github.com/rmohr/bazeldnf/pkg/logger"
 	"github.com/rmohr/bazeldnf/pkg/xattr"
 	"github.com/sassoftware/go-rpmutils/cpio"
-	"github.com/sirupsen/logrus"
 )
 
 // Extract the contents of a cpio stream from and writes it as a tar file into the provided writer
@@ -48,7 +48,7 @@ func Tar(rs io.Reader, tarfile *tar.Writer, noSymlinksAndDirs bool, capabilities
 
 		if entry.Header.Filename() != "" {
 			if _, exists := createdPaths[entry.Header.Filename()]; exists {
-				logrus.Debugf("Skipping duplicate tar entry %s\n", entry.Header.Filename())
+				l.Log().Debugf("Skipping duplicate tar entry %s\n", entry.Header.Filename())
 				continue
 			}
 			createdPaths[entry.Header.Filename()] = struct{}{}

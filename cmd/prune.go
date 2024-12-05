@@ -2,7 +2,7 @@ package main
 
 import (
 	"github.com/rmohr/bazeldnf/pkg/bazel"
-	"github.com/sirupsen/logrus"
+	l "github.com/rmohr/bazeldnf/pkg/logger"
 	"github.com/spf13/cobra"
 )
 
@@ -20,6 +20,8 @@ func NewPruneCmd() *cobra.Command {
 		Use:   "prune",
 		Short: "prunes unused RPM dependencies",
 		RunE: func(cmd *cobra.Command, required []string) error {
+			InitLogger(cmd)
+
 			build, err := bazel.LoadBuild(pruneopts.buildfile)
 			if err != nil {
 				return err
@@ -55,7 +57,7 @@ func NewPruneCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			logrus.Info("Done.")
+			l.Log().Info("Done.")
 			return nil
 		},
 	}

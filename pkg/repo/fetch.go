@@ -15,7 +15,7 @@ import (
 
 	"github.com/rmohr/bazeldnf/pkg/api"
 	"github.com/rmohr/bazeldnf/pkg/api/bazeldnf"
-	log "github.com/sirupsen/logrus"
+	l "github.com/rmohr/bazeldnf/pkg/logger"
 )
 
 type RepoFetcher interface {
@@ -130,7 +130,7 @@ func (r *RepoFetcherImpl) resolveMirrorlist(repo *bazeldnf.Repository) ([]string
 	}
 
 	mirrorlist, err := r.CacheHelper.LoadMirrorlist(repo)
-	log.Infof("Loaded mirrorlist: %v", mirrorlist)
+	l.Log().Infof("Loaded mirrorlist: %v", mirrorlist)
 
 	urls := []string{}
 	for _, mirror := range mirrorlist {
@@ -155,36 +155,36 @@ func (r *RepoFetcherImpl) resolveMirrorlist(repo *bazeldnf.Repository) ([]string
 func (r *RepoFetcherImpl) resolveRepomd(repo *bazeldnf.Repository, repomdURLs []string, sha256sums []string) (repomd *api.Repomd, mirror *url.URL, err error) {
 	for _, u := range repomdURLs {
 		sha := sha256.New()
-		log.Infof("Resolving repomd.xml from %s", u)
+		l.Log().Infof("Resolving repomd.xml from %s", u)
 		resp, err := r.Getter.Get(u)
 		if err != nil {
-			log.Errorf("Failed to resolve repomd.xml from %s: %v", u, err)
+			l.Log().Errorf("Failed to resolve repomd.xml from %s: %v", u, err)
 			continue
 		}
 		defer resp.Body.Close()
 		if resp.StatusCode < 200 || resp.StatusCode > 299 {
-			log.Warningf("Failed to download %s: %v ", u, fmt.Errorf("status : %v", resp.StatusCode))
+			l.Log().Warningf("Failed to download %s: %v ", u, fmt.Errorf("status : %v", resp.StatusCode))
 			continue
 		}
 		body := io.TeeReader(resp.Body, sha)
 		err = r.CacheHelper.WriteToRepoDir(repo, body, "repomd.xml")
 		if err != nil {
-			log.Errorf("Failed to save repomd.xml from %s: %v", u, err)
+			l.Log().Errorf("Failed to save repomd.xml from %s: %v", u, err)
 			continue
 		}
 		if len(sha256sums) > 0 {
 			matched := false
 			for _, sum := range sha256sums {
 				if toHex(sha) != sum {
-					log.Warnf("Expected repomd.xml sha256 sum %s, but got %s", sum, toHex(sha))
+					l.Log().Warnf("Expected repomd.xml sha256 sum %s, but got %s", sum, toHex(sha))
 				} else {
-					log.Infof("Matched repmod.xml with sha256 sum %s", toHex(sha))
+					l.Log().Infof("Matched repmod.xml with sha256 sum %s", toHex(sha))
 					matched = true
 					break
 				}
 			}
 			if !matched {
-				log.Warningf("Mirror has no expected repomd.xml version: %v", u)
+				l.Log().Warningf("Mirror has no expected repomd.xml version: %v", u)
 				continue
 			}
 		}
@@ -192,13 +192,13 @@ func (r *RepoFetcherImpl) resolveRepomd(repo *bazeldnf.Repository, repomdURLs []
 		file := &api.Repomd{}
 		err = r.CacheHelper.UnmarshalFromRepoDir(repo, "repomd.xml", file)
 		if err != nil {
-			log.Errorf("Failed to decode repomd.xml from %s: %v", u, err)
+			l.Log().Errorf("Failed to decode repomd.xml from %s: %v", u, err)
 			continue
 		}
 		repomd = file
 		mirror, err = url.Parse(u)
 		if err != nil {
-			log.Fatalf("Invalid URL for repomd.xml from %s, this should be impossible: %v", u, err)
+			l.Log().Fatalf("Invalid URL for repomd.xml from %s, this should be impossible: %v", u, err)
 		}
 		break
 	}
@@ -226,7 +226,7 @@ func (r *RepoFetcherImpl) fetchFile(fileType string, repo *bazeldnf.Repository, 
 		mirrorCopy.Path = path.Join(mirror.Path, file.Location.Href)
 		fileURL = mirrorCopy.String()
 	}
-	log.Infof("Loading %s file from %s", fileType, fileURL)
+	l.Log().Infof("Loading %s file from %s", fileType, fileURL)
 	resp, err := r.Getter.Get(fileURL)
 	if err != nil {
 		return fmt.Errorf("Failed to load primary repository file from %s: %v", fileURL, err)

@@ -9,9 +9,9 @@ import (
 	"net/http"
 
 	"github.com/rmohr/bazeldnf/pkg/bazel"
+	l "github.com/rmohr/bazeldnf/pkg/logger"
 	"github.com/rmohr/bazeldnf/pkg/repo"
 	"github.com/sassoftware/go-rpmutils"
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/openpgp"
 )
@@ -31,6 +31,8 @@ func NewVerifyCmd() *cobra.Command {
 		Short: "verify RPMs against gpg keys defined in repo.yaml",
 		Long:  `verify RPMs against gpg keys defined in repo.yaml`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			InitLogger(cmd)
+
 			repos, err := repo.LoadRepoFiles(verifyopts.repofiles)
 			if err != nil {
 				return err
@@ -96,16 +98,16 @@ func verify(rpm *bazel.RPMRule, keyring openpgp.EntityList) (err error) {
 		keyring = openpgp.EntityList{}
 	}
 
-	log.Infof("Verifying %s", rpm.Name())
+	l.Log().Infof("Verifying %s", rpm.Name())
 	for _, url := range rpm.URLs() {
 		sha := sha256.New()
 		resp, err := http.Get(url)
 		if err != nil {
-			log.Warningf("Failed to download %s: %v", rpm.Name(), err)
+			l.Log().Warningf("Failed to download %s: %v", rpm.Name(), err)
 			continue
 		}
 		if resp.StatusCode < 200 || resp.StatusCode > 299 {
-			log.Warningf("Failed to download %s: %v ", rpm.Name(), fmt.Errorf("status : %v", resp.StatusCode))
+			l.Log().Warningf("Failed to download %s: %v ", rpm.Name(), fmt.Errorf("status : %v", resp.StatusCode))
 			continue
 		}
 		defer resp.Body.Close()
@@ -117,7 +119,7 @@ func verify(rpm *bazel.RPMRule, keyring openpgp.EntityList) (err error) {
 		}
 
 		if verifyErr != nil && shaErr != nil {
-			log.Warningf("Failed to verify %s: %v: %v", rpm.Name(), verifyErr, shaErr)
+			l.Log().Warningf("Failed to verify %s: %v: %v", rpm.Name(), verifyErr, shaErr)
 			continue
 		} else if verifyErr != nil {
 			return fmt.Errorf("the artifact has the right shasum but is not a RPM: %v", verifyErr)

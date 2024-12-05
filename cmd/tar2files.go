@@ -22,6 +22,8 @@ func NewTar2FilesCmd() *cobra.Command {
 		Short: "extract certain files in a given directory from a tar archive",
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
+			InitLogger(cmd)
+
 			tarStream := os.Stdin
 			if tar2filesopts.tarFile != "" {
 				tarStream, err = os.Open(tar2filesopts.tarFile)

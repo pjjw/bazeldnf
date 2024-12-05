@@ -12,7 +12,8 @@ import (
 
 	"github.com/sassoftware/go-rpmutils"
 	"github.com/sassoftware/go-rpmutils/cpio"
-	log "github.com/sirupsen/logrus"
+
+	l "github.com/rmohr/bazeldnf/pkg/logger"
 )
 
 type Collector struct {
@@ -197,7 +198,7 @@ func Untar(tmpRoot string, tarFile string) error {
 			}
 			hardLinks[target] = entry.Linkname
 		default:
-			log.Debugf("Skipping %s with type %v", entry.Name, entry.Typeflag)
+			l.Log().Debugf("Skipping %s with type %v", entry.Name, entry.Typeflag)
 		}
 	}
 
