@@ -13,6 +13,7 @@ import (
 
 	"github.com/rmohr/bazeldnf/pkg/api"
 	"github.com/rmohr/bazeldnf/pkg/api/bazeldnf"
+	l "github.com/rmohr/bazeldnf/pkg/logger"
 	"github.com/rmohr/bazeldnf/pkg/rpm"
 
 	"github.com/klauspost/compress/zstd"
@@ -97,12 +98,14 @@ func (r *CacheHelper) CurrentPrimary(repo *bazeldnf.Repository) (*api.Repository
 	defer file.Close()
 	var reader io.ReadCloser
 	if strings.HasSuffix(primaryName, "zst") {
+		l.Log().Debugf("Using zstd decoder for %s", primaryName)
 		decoder, err := zstd.NewReader(file)
 		if err != nil {
 			return nil, err
 		}
 		reader = decoder.IOReadCloser()
 	} else {
+		l.Log().Debugf("Using gzip decoder for %s", primaryName)
 		reader, err = gzip.NewReader(file)
 		if err != nil {
 			return nil, err
@@ -115,6 +118,7 @@ func (r *CacheHelper) CurrentPrimary(repo *bazeldnf.Repository) (*api.Repository
 	if err != nil {
 		return nil, err
 	}
+	l.Log().Debugf("Loaded repo structure for %s", primaryName)
 
 	if len(repo.Mirrors) == 0 {
 		if repo.Metalink != "" {
@@ -134,7 +138,11 @@ func (r *CacheHelper) CurrentPrimary(repo *bazeldnf.Repository) (*api.Repository
 				return nil, err
 			}
 		} else if repo.Mirrorlist != "" {
-
+			mirrors, err := r.LoadMirrorlist(repo)
+			if err != nil {
+				return nil, fmt.Errorf("couldn't load mirrorlist for repo %s", primaryName)
+			}
+			repo.Mirrors = mirrors
 		} else if repo.Baseurl != "" {
 			repo.Mirrors = []string{repo.Baseurl}
 		}
@@ -242,6 +250,7 @@ func (r *CacheHelper) CurrentFilelistsForPackages(repo *bazeldnf.Repository, arc
 func (r *CacheHelper) CurrentPrimaries(repos *bazeldnf.Repositories, arch string) (primaries []*api.Repository, err error) {
 	for i, repo := range repos.Repositories {
 		if repo.Arch != arch {
+			l.Log().Debugf("Skipping repository %s: repo arch %s does not match requested arch %s", repo.Name, repo.Arch, arch)
 			continue
 		}
 		primary, err := r.CurrentPrimary(&repos.Repositories[i])

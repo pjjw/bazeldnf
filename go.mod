@@ -1,10 +1,12 @@
 module github.com/rmohr/bazeldnf
 
-go 1.19
+go 1.23.0
+
+toolchain go1.23.1
 
 require (
 	github.com/bazelbuild/buildtools v0.0.0-20240823132350-3488089d3661
-	github.com/crillab/gophersat v1.3.1
+	github.com/crillab/gophersat v1.4.0
 	github.com/klauspost/compress v1.11.1
 	github.com/onsi/gomega v1.26.0
 	github.com/sassoftware/go-rpmutils v0.2.0
@@ -16,7 +18,7 @@ require (
 
 require (
 	github.com/golang/protobuf v1.5.2 // indirect
-	github.com/google/go-cmp v0.5.9 // indirect
+	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/inconshreveable/mousetrap v1.0.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8 // indirect

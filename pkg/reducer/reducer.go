@@ -4,6 +4,8 @@ import (
 	"encoding/xml"
 	"fmt"
 	"os"
+	"maps"
+	"slices"
 	"strings"
 
 	"github.com/rmohr/bazeldnf/pkg/api"
@@ -22,6 +24,28 @@ type RepoReducer struct {
 	architectures    []string
 	repos            *bazeldnf.Repositories
 	cacheHelper      *repo.CacheHelper
+}
+
+func (r *RepoReducer) updateProvidesIndex() {
+	for i, p := range r.packages {
+		requires := []api.Entry{}
+		// trim pseudo-requirements from each package's requires list
+		for _, requirement := range p.Format.Requires.Entries {
+			if !strings.HasPrefix(requirement.Name, "(") {
+				requires = append(requires, requirement)
+			} else {
+				l.Log().Debugf("skipping pseudo-requirement %s", requirement)
+			}
+		}
+		r.packages[i].Format.Requires.Entries = requires
+
+		for _, provides := range p.Format.Provides.Entries {
+			r.provides[provides.Name] = append(r.provides[provides.Name], &r.packages[i])
+		}
+		for _, file := range p.Format.Files {
+			r.provides[file.Text] = append(r.provides[file.Text], &r.packages[i])
+		}
+	}
 }
 
 func (r *RepoReducer) Load() error {
@@ -43,10 +67,12 @@ func (r *RepoReducer) Load() error {
 			r.packages = append(r.packages, repoFile.Packages[i])
 		}
 	}
+	l.Log().Info("loaded repo files")
 	repos, err := r.cacheHelper.CurrentPrimaries(r.repos, r.arch)
 	if err != nil {
 		return fmt.Errorf("failed while getting current primaries: %w", err)
 	}
+	l.Log().Info("loaded primary package xml data")
 	for _, rpmrepo := range repos {
 		for i, p := range rpmrepo.Packages {
 			if skip(p.Arch, r.architectures) {
@@ -58,24 +84,19 @@ func (r *RepoReducer) Load() error {
 	for i, _ := range r.packages {
 		FixPackages(&r.packages[i])
 	}
+	l.Log().Info("fixed up package data")
 
-	for i, p := range r.packages {
-		requires := []api.Entry{}
-		for _, requirement := range p.Format.Requires.Entries {
-			if !strings.HasPrefix(requirement.Name, "(") {
-				requires = append(requires, requirement)
-			}
-		}
-		r.packages[i].Format.Requires.Entries = requires
+	r.updateProvidesIndex()
 
-		for _, provides := range p.Format.Provides.Entries {
-			r.provides[provides.Name] = append(r.provides[provides.Name], &r.packages[i])
-		}
-		for _, file := range p.Format.Files {
-			r.provides[file.Text] = append(r.provides[file.Text], &r.packages[i])
-		}
-	}
 	return nil
+}
+
+func (r *RepoReducer) DumpPackages() []*api.Package {
+	var packages []*api.Package
+	for i, _ := range r.packages {
+		packages = append(packages, &r.packages[i])
+	}
+	return packages
 }
 
 func (r *RepoReducer) Resolve(packages []string) (matched []string, involved []*api.Package, err error) {
@@ -160,12 +181,12 @@ func (r *RepoReducer) Resolve(packages []string) (matched []string, involved []*
 func (r *RepoReducer) requires(p *api.Package) (wants []*api.Package) {
 	for _, requires := range p.Format.Requires.Entries {
 		if val, exists := r.provides[requires.Name]; exists {
-
-			var packages []string
+			packages := map[string]bool{}
 			for _, p := range val {
-				packages = append(packages, p.Name)
+				packages[p.Name] = true
 			}
-			l.Log().Debugf("%s wants %v because of %v\n", p.Name, packages, requires)
+			plist := slices.Collect(maps.Keys(packages))
+			l.Log().Debugf("%s needs one of %v because of %v\n", p.Name, plist, requires)
 			wants = append(wants, val...)
 		} else {
 			l.Log().Debugf("%s requires %v which can't be satisfied\n", p.Name, requires)

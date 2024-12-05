@@ -48,13 +48,20 @@ func NewResolveCmd() *cobra.Command {
 			if err := repo.Load(); err != nil {
 				return fmt.Errorf("failed while loading packages: %w", err)
 			}
+			l.Log().Info("Loaded packages.")
+
 			l.Log().Infof("Initial reduction of involved packages from required packages %+v.", required)
 			matched, involved, err := repo.Resolve(required)
 			if err != nil {
-				return fmt.Errorf("failed while resolving packages: %w", err)
+				return fmt.Errorf("failed while reducing packages: %w", err)
 			}
 			l.Log().Infof("packages matched: %d, packages involved: %d", len(matched), len(involved))
 			l.Log().Debugf("involved: %+v", involved)
+			// involved := repo.DumpPackages()
+			// matched := []string{resolveopts.baseSystem}
+			for _, r := range required {
+				matched = append(matched, r)
+			}
 			solver := sat.NewResolver(resolveopts.nobest)
 			l.Log().Info("Loading involved packages into the resolver.")
 			err = solver.LoadInvolvedPackages(involved, resolveopts.forceIgnoreRegex)
